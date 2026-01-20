@@ -1,66 +1,93 @@
 import { writable } from 'svelte/store';
-import { storage } from '../utils/storage';
-
-const WORDS_KEY = 'reminisce-saved-words';
+import { savedWordsService } from '../services/savedWords';
+import { authStore } from './auth';
+import { browser } from '$app/environment';
 
 export interface SavedWord {
 	word: string;
 }
 
 function createWordsStore() {
-	const stored = storage.get<SavedWord[]>(WORDS_KEY) || [];
-	const { subscribe, set, update } = writable<SavedWord[]>(stored);
+	const { subscribe, set, update } = writable<SavedWord[]>([]);
+	let isLoading = false;
+
+	// Load words when user is authenticated
+	if (browser) {
+		authStore.subscribe((auth) => {
+			if (auth.initialized && !auth.loading) {
+				if (auth.user) {
+					loadWords();
+				} else {
+					set([]);
+				}
+			}
+		});
+	}
+
+	async function loadWords() {
+		if (isLoading) return;
+		isLoading = true;
+		try {
+			const words = await savedWordsService.getAll();
+			set(words);
+		} catch (error) {
+			console.error('Failed to load saved words:', error);
+			set([]);
+		} finally {
+			isLoading = false;
+		}
+	}
 
 	return {
 		subscribe,
-		addWord: (word: string): void => {
+		addWord: async (word: string): Promise<void> => {
 			if (!word) return;
-			update((words) => {
-				const exists = words.some((w) => w.word && w.word.toLowerCase() === word.toLowerCase());
-				if (exists) {
-					return words;
-				}
-
-				const newWord: SavedWord = {
-					word: word
-				};
-
-				const newWords = [...words, newWord];
-				storage.set(WORDS_KEY, newWords);
-				return newWords;
-			});
+			try {
+				await savedWordsService.save(word);
+				await loadWords(); // Reload to sync with database
+			} catch (error) {
+				console.error('Failed to add word:', error);
+				throw error;
+			}
 		},
-		removeWord: (word: string): void => {
+		removeWord: async (word: string): Promise<void> => {
 			if (!word) return;
-			update((words) => {
-				const newWords = words.filter(
-					(w) => w.word && w.word.toLowerCase() !== word.toLowerCase()
-				);
-				storage.set(WORDS_KEY, newWords);
-				return newWords;
-			});
+			try {
+				await savedWordsService.remove(word);
+				await loadWords(); // Reload to sync with database
+			} catch (error) {
+				console.error('Failed to remove word:', error);
+				throw error;
+			}
 		},
-		getWord: (word: string): SavedWord | undefined => {
+		getWord: async (word: string): Promise<SavedWord | undefined> => {
 			if (!word) return undefined;
-			let found: SavedWord | undefined;
-			update((words) => {
-				found = words.find((w) => w.word && w.word.toLowerCase() === word.toLowerCase());
-				return words;
-			});
-			return found;
+			try {
+				const isSaved = await savedWordsService.isSaved(word);
+				return isSaved ? { word: word.toLowerCase() } : undefined;
+			} catch (error) {
+				console.error('Failed to check word:', error);
+				return undefined;
+			}
 		},
-		getAll: (): SavedWord[] => {
-			let all: SavedWord[] = [];
-			update((words) => {
-				all = words;
-				return words;
-			});
-			return all;
+		getAll: async (): Promise<SavedWord[]> => {
+			try {
+				return await savedWordsService.getAll();
+			} catch (error) {
+				console.error('Failed to get all words:', error);
+				return [];
+			}
 		},
-		clear: (): void => {
-			set([]);
-			storage.remove(WORDS_KEY);
-		}
+		clear: async (): Promise<void> => {
+			try {
+				await savedWordsService.clear();
+				set([]);
+			} catch (error) {
+				console.error('Failed to clear words:', error);
+				throw error;
+			}
+		},
+		refresh: loadWords
 	};
 }
 

@@ -1,21 +1,59 @@
 <script lang="ts">
 	import { wordsStore, type SavedWord } from '$lib/stores/words';
+	import { authStore } from '$lib/stores/auth';
 	import { goto } from '$app/navigation';
 	import Button from '$lib/ui/Button.svelte';
 	import Card from '$lib/ui/Card.svelte';
+	import AuthModal from '../components/AuthModal.svelte';
 
 	let savedWords = $state<SavedWord[]>([]);
+	let isLoading = $state(true);
+	let authState = $state({ user: null, loading: true, initialized: false });
+	let authModalOpen = $state(false);
 
 	$effect(() => {
-		const unsubscribe = wordsStore.subscribe((words) => {
-			savedWords = words;
+		const unsubscribeAuth = authStore.subscribe((auth) => {
+			authState = {
+				user: auth.user,
+				loading: auth.loading,
+				initialized: auth.initialized
+			};
+			if (auth.initialized && !auth.loading && auth.user) {
+				loadWords();
+			} else if (auth.initialized && !auth.loading && !auth.user) {
+				savedWords = [];
+				isLoading = false;
+			}
 		});
-		return unsubscribe;
+		return unsubscribeAuth;
 	});
 
-	function handleRemove(word: string) {
+	$effect(() => {
+		const unsubscribeWords = wordsStore.subscribe((words) => {
+			savedWords = words;
+		});
+		return unsubscribeWords;
+	});
+
+	async function loadWords() {
+		isLoading = true;
+		try {
+			await wordsStore.refresh();
+		} catch (error) {
+			console.error('Failed to load saved words:', error);
+		} finally {
+			isLoading = false;
+		}
+	}
+
+	async function handleRemove(word: string) {
 		if (confirm(`Remove "${word}" from saved words?`)) {
-			wordsStore.removeWord(word);
+			try {
+				await wordsStore.removeWord(word);
+			} catch (error) {
+				console.error('Failed to remove word:', error);
+				alert('Failed to remove word. Please try again.');
+			}
 		}
 	}
 
@@ -27,13 +65,34 @@
 <div class="max-w-3xl mx-auto">
 	<h1 class="text-3xl font-bold mb-8 text-center">Saved Words</h1>
 
-	{#if savedWords.length === 0}
+	{#if authState.loading || !authState.initialized}
+		<Card>
+			<div class="text-center py-12">
+				<p class="text-slate-400">Loading...</p>
+			</div>
+		</Card>
+	{:else if !authState.user}
+		<Card>
+			<div class="text-center py-12">
+				<p class="text-slate-400 mb-4">Please sign in to view your saved words</p>
+				<Button onclick={() => (authModalOpen = true)} variant="primary">
+					Sign In
+				</Button>
+			</div>
+		</Card>
+	{:else if isLoading}
+		<Card>
+			<div class="text-center py-12">
+				<p class="text-slate-400">Loading saved words...</p>
+			</div>
+		</Card>
+	{:else if savedWords.length === 0}
 		<Card>
 			<div class="text-center py-12">
 				<p class="text-slate-400 mb-4">No saved words yet</p>
 				<a
 					href="/"
-					class="inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-900 font-medium"
+					class="inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-900 font-medium text-white!"
 				>
 					Search for words
 				</a>
@@ -67,3 +126,5 @@
 		</ul>
 	{/if}
 </div>
+
+<AuthModal bind:isOpen={authModalOpen} />

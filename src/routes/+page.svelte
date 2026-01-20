@@ -2,14 +2,18 @@
 	import { useUrlSearch } from '$lib/composables/useUrlSearch.svelte';
 	import { useSearch } from '$lib/composables/useSearch.svelte';
 	import { useSaveWord } from '$lib/composables/useSaveWord.svelte';
+	import { authStore } from '$lib/stores/auth';
 	import SearchBar from './components/SearchBar.svelte';
 	import LoadingState from './components/LoadingState.svelte';
 	import ErrorState from './components/ErrorState.svelte';
 	import EmptyState from './components/EmptyState.svelte';
 	import WordDetails from './components/WordDetails.svelte';
+	import AuthModal from './components/AuthModal.svelte';
 
 	let searchInput = $state('');
 	let previousUrlParam = $state<string | null>(null);
+	let saveError = $state<string | null>(null);
+	let authModalOpen = $state(false);
 
 	const urlSearch = useUrlSearch();
 	const search = useSearch();
@@ -26,7 +30,18 @@
 	}
 
 	async function handleSave() {
-		await saveWord.save();
+		saveError = null;
+		try {
+			await saveWord.save();
+		} catch (error: any) {
+			console.error('Failed to save word:', error);
+			if (error.message?.includes('sign in') || error.message?.includes('authenticated')) {
+				saveError = 'Please sign in to save words';
+				authModalOpen = true;
+			} else {
+				saveError = error.message || 'Failed to save word. Please try again.';
+			}
+		}
 	}
 
 	$effect(() => {
@@ -56,6 +71,15 @@
 		/>
 	</div>
 
+	{#if saveError}
+		<div
+			class="mb-4 p-3 rounded-md bg-red-900/50 border border-red-700 text-red-300"
+			role="alert"
+		>
+			{saveError}
+		</div>
+	{/if}
+
 	{#if search.isLoading}
 		<LoadingState />
 	{/if}
@@ -67,7 +91,7 @@
 	{#if search.data && !search.isLoading}
 		<WordDetails
 			wordData={search.data}
-			isSaved={saveWord.isSaved()}
+			isSaved={saveWord.isSaved}
 			isSaving={saveWord.isSaving}
 			onSave={handleSave}
 		/>
@@ -77,3 +101,5 @@
 		<EmptyState />
 	{/if}
 </div>
+
+<AuthModal bind:isOpen={authModalOpen} />
