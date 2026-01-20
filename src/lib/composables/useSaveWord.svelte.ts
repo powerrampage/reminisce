@@ -5,10 +5,9 @@ import type { NormalizedResponse } from '$lib/types';
 export function useSaveWord(getWordData: () => NormalizedResponse | null) {
 	let isSaving = $state(false);
 	let isSaved = $state(false);
-	let authState = $state({ user: null, loading: true, initialized: false });
+	let authState = $state<{ user: import('@supabase/supabase-js').User | null; loading: boolean; initialized: boolean }>({ user: null, loading: true, initialized: false });
 	let lastCheckedWord = $state<string | null>(null);
 
-	// Subscribe to auth state
 	$effect(() => {
 		const unsubscribe = authStore.subscribe((auth) => {
 			authState = {
@@ -20,7 +19,6 @@ export function useSaveWord(getWordData: () => NormalizedResponse | null) {
 		return unsubscribe;
 	});
 
-	// Check if word is saved
 	$effect(() => {
 		const data = getWordData();
 		const term = data?.term?.toLowerCase();
@@ -31,14 +29,12 @@ export function useSaveWord(getWordData: () => NormalizedResponse | null) {
 			return;
 		}
 
-		// Only check if word changed
 		if (term === lastCheckedWord) {
 			return;
 		}
 
 		lastCheckedWord = term;
 		wordsStore.getWord(term).then((saved) => {
-			// Only update if still checking the same word
 			if (term === lastCheckedWord) {
 				isSaved = !!saved;
 			}
