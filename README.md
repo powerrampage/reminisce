@@ -1,0 +1,3 @@
+- https://svelte.dev
+- https://dictionaryapi.dev/
+- https://openrussian.org/
