@@ -6,6 +6,7 @@ export function useSaveWord(getWordData: () => NormalizedResponse | null) {
 	let isSaving = $state(false);
 	let isSaved = $state(false);
 	let authState = $state({ user: null, loading: true, initialized: false });
+	let lastCheckedWord = $state<string | null>(null);
 
 	// Subscribe to auth state
 	$effect(() => {
@@ -22,13 +23,25 @@ export function useSaveWord(getWordData: () => NormalizedResponse | null) {
 	// Check if word is saved
 	$effect(() => {
 		const data = getWordData();
-		if (!data?.term || !authState.user || authState.loading) {
+		const term = data?.term?.toLowerCase();
+		
+		if (!term || !authState.user || authState.loading || !authState.initialized) {
 			isSaved = false;
+			lastCheckedWord = null;
 			return;
 		}
 
-		wordsStore.getWord(data.term).then((saved) => {
-			isSaved = !!saved;
+		// Only check if word changed
+		if (term === lastCheckedWord) {
+			return;
+		}
+
+		lastCheckedWord = term;
+		wordsStore.getWord(term).then((saved) => {
+			// Only update if still checking the same word
+			if (term === lastCheckedWord) {
+				isSaved = !!saved;
+			}
 		});
 	});
 

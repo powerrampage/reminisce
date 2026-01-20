@@ -8,8 +8,9 @@
 
 	let savedWords = $state<SavedWord[]>([]);
 	let isLoading = $state(true);
-	let authState = $state({ user: null, loading: true, initialized: false });
+	let authState = $state<{ user: import('@supabase/supabase-js').User | null; loading: boolean; initialized: boolean }>({ user: null, loading: true, initialized: false });
 	let authModalOpen = $state(false);
+	let hasLoadedOnce = $state(false);
 
 	$effect(() => {
 		const unsubscribeAuth = authStore.subscribe((auth) => {
@@ -18,11 +19,14 @@
 				loading: auth.loading,
 				initialized: auth.initialized
 			};
-			if (auth.initialized && !auth.loading && auth.user) {
+			if (auth.initialized && !auth.loading && auth.user && !hasLoadedOnce) {
+				// Only refresh once when page loads and user is authenticated
+				hasLoadedOnce = true;
 				loadWords();
 			} else if (auth.initialized && !auth.loading && !auth.user) {
 				savedWords = [];
 				isLoading = false;
+				hasLoadedOnce = false;
 			}
 		});
 		return unsubscribeAuth;
@@ -31,6 +35,10 @@
 	$effect(() => {
 		const unsubscribeWords = wordsStore.subscribe((words) => {
 			savedWords = words;
+			// Update loading state when words are loaded
+			if (hasLoadedOnce && authState.initialized && !authState.loading) {
+				isLoading = false;
+			}
 		});
 		return unsubscribeWords;
 	});

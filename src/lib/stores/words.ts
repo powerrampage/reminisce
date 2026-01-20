@@ -10,14 +10,20 @@ export interface SavedWord {
 function createWordsStore() {
 	const { subscribe, set, update } = writable<SavedWord[]>([]);
 	let isLoading = false;
+	let currentUserId: string | null = null;
 
 	// Load words when user is authenticated
 	if (browser) {
 		authStore.subscribe((auth) => {
 			if (auth.initialized && !auth.loading) {
 				if (auth.user) {
-					loadWords();
+					// Only load if user changed or not loaded yet
+					if (auth.user.id !== currentUserId) {
+						currentUserId = auth.user.id;
+						loadWords();
+					}
 				} else {
+					currentUserId = null;
 					set([]);
 				}
 			}

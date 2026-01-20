@@ -33,7 +33,7 @@
 
 <Card>
 	<div
-		class="relative min-h-[400px] perspective-1000"
+		class="relative min-h-[450px] perspective-1000"
 		role="region"
 		aria-label="Flashcard"
 		aria-live="polite"

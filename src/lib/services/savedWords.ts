@@ -1,4 +1,6 @@
 import { supabase } from '$lib/supabase/client';
+import { authStore } from '$lib/stores/auth';
+import { get } from 'svelte/store';
 import type { SavedWord } from '$lib/stores/words';
 
 export interface SavedWordRow {
@@ -8,20 +10,26 @@ export interface SavedWordRow {
 	created_at: string;
 }
 
+/**
+ * Get the current user ID from the auth store (no network request)
+ */
+function getCurrentUserId(): string | null {
+	const auth = get(authStore);
+	return auth.user?.id ?? null;
+}
+
 export const savedWordsService = {
 	/**
 	 * Get all saved words for the current user
 	 */
 	async getAll(): Promise<SavedWord[]> {
-		const {
-			data: { user }
-		} = await supabase.auth.getUser();
-		if (!user) return [];
+		const userId = getCurrentUserId();
+		if (!userId) return [];
 
 		const { data, error } = await supabase
 			.from('saved_words')
 			.select('word, created_at')
-			.eq('user_id', user.id)
+			.eq('user_id', userId)
 			.order('created_at', { ascending: false });
 
 		if (error) {
@@ -36,15 +44,13 @@ export const savedWordsService = {
 	 * Check if a word is saved for the current user
 	 */
 	async isSaved(word: string): Promise<boolean> {
-		const {
-			data: { user }
-		} = await supabase.auth.getUser();
-		if (!user) return false;
+		const userId = getCurrentUserId();
+		if (!userId) return false;
 
 		const { data, error } = await supabase
 			.from('saved_words')
 			.select('id')
-			.eq('user_id', user.id)
+			.eq('user_id', userId)
 			.eq('word', word.toLowerCase())
 			.single();
 
@@ -61,10 +67,8 @@ export const savedWordsService = {
 	 * Save a word for the current user
 	 */
 	async save(word: string): Promise<void> {
-		const {
-			data: { user }
-		} = await supabase.auth.getUser();
-		if (!user) {
+		const userId = getCurrentUserId();
+		if (!userId) {
 			throw new Error('User must be authenticated to save words');
 		}
 
@@ -80,7 +84,7 @@ export const savedWordsService = {
 		}
 
 		const { error } = await supabase.from('saved_words').insert({
-			user_id: user.id,
+			user_id: userId,
 			word: normalizedWord
 		});
 
@@ -94,10 +98,8 @@ export const savedWordsService = {
 	 * Remove a saved word for the current user
 	 */
 	async remove(word: string): Promise<void> {
-		const {
-			data: { user }
-		} = await supabase.auth.getUser();
-		if (!user) {
+		const userId = getCurrentUserId();
+		if (!userId) {
 			throw new Error('User must be authenticated to remove words');
 		}
 
@@ -105,7 +107,7 @@ export const savedWordsService = {
 		const { error } = await supabase
 			.from('saved_words')
 			.delete()
-			.eq('user_id', user.id)
+			.eq('user_id', userId)
 			.eq('word', normalizedWord);
 
 		if (error) {
@@ -118,14 +120,12 @@ export const savedWordsService = {
 	 * Clear all saved words for the current user
 	 */
 	async clear(): Promise<void> {
-		const {
-			data: { user }
-		} = await supabase.auth.getUser();
-		if (!user) {
+		const userId = getCurrentUserId();
+		if (!userId) {
 			throw new Error('User must be authenticated to clear words');
 		}
 
-		const { error } = await supabase.from('saved_words').delete().eq('user_id', user.id);
+		const { error } = await supabase.from('saved_words').delete().eq('user_id', userId);
 
 		if (error) {
 			console.error('Error clearing words:', error);
