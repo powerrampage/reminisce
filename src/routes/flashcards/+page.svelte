@@ -20,7 +20,13 @@
 	let isLoadingWord = $state(false);
 	let error = $state<string | null>(null);
 
-	let currentWord = $derived(navigation?.getCurrentWord());
+	let currentWord = $derived.by(() => {
+		if (!navigation || shuffledIndices.length === 0 || currentIndex >= shuffledIndices.length) {
+			return undefined;
+		}
+		const wordIndex = shuffledIndices[currentIndex];
+		return savedWords[wordIndex];
+	});
 	let hasWords = $derived(savedWords.length > 0);
 	let wordDataExtracted = $derived(extractWordData(wordData));
 
@@ -86,7 +92,11 @@
 	}
 
 	function handleShuffle() {
-		navigation?.shuffle();
+		if (!navigation) return;
+		
+		navigation.shuffle();
+		shuffledIndices = [...navigation.getShuffledIndices()];
+		currentIndex = 0;
 		isFlipped = false;
 		wordData = null;
 		error = null;
