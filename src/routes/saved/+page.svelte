@@ -20,7 +20,6 @@
 				initialized: auth.initialized
 			};
 			if (auth.initialized && !auth.loading && auth.user && !hasLoadedOnce) {
-				// Only refresh once when page loads and user is authenticated
 				hasLoadedOnce = true;
 				loadWords();
 			} else if (auth.initialized && !auth.loading && !auth.user) {
@@ -35,7 +34,6 @@
 	$effect(() => {
 		const unsubscribeWords = wordsStore.subscribe((words) => {
 			savedWords = words;
-			// Update loading state when words are loaded
 			if (hasLoadedOnce && authState.initialized && !authState.loading) {
 				isLoading = false;
 			}
@@ -67,6 +65,10 @@
 
 	function handleOpenFlashcard(word: string) {
 		goto(`/flashcards?word=${encodeURIComponent(word)}`);
+	}
+
+	function handleWordClick(word: string) {
+		goto(`/?q=${encodeURIComponent(word)}`);
 	}
 </script>
 
@@ -110,20 +112,32 @@
 		<ul class="space-y-4" role="list">
 			{#each savedWords as savedWord}
 				<Card>
-					<div class="flex items-start justify-between gap-4">
+					<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
 						<div class="flex-1 min-w-0">
-							<h2 class="text-xl font-bold mb-1 truncate">{savedWord.word}</h2>
+							<a
+								href="/?q={encodeURIComponent(savedWord.word)}"
+								onclick={(e) => {
+									e.preventDefault();
+									handleWordClick(savedWord.word);
+								}}
+								class="text-xl font-bold mb-1 truncate text-blue-400 hover:text-blue-300 underline decoration-2 underline-offset-4 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-900 rounded inline-block"
+							>
+								{savedWord.word}
+							</a>
 						</div>
-						<div class="flex gap-2 shrink-0">
+						<div class="flex flex-col sm:flex-row gap-2 shrink-0 w-full sm:w-auto">
 							<Button
 								onclick={() => handleOpenFlashcard(savedWord.word)}
 								variant="primary"
+								class="text-sm sm:text-base w-full sm:w-auto justify-center"
 							>
-								Open Flashcard
+								<span class="hidden sm:inline">Open Flashcard</span>
+								<span class="sm:hidden">Flashcard</span>
 							</Button>
 							<Button
 								onclick={() => handleRemove(savedWord.word)}
 								variant="default"
+								class="text-sm sm:text-base w-full sm:w-auto justify-center"
 							>
 								Remove
 							</Button>

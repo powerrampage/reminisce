@@ -10,18 +10,12 @@ export interface SavedWordRow {
 	created_at: string;
 }
 
-/**
- * Get the current user ID from the auth store (no network request)
- */
 function getCurrentUserId(): string | null {
 	const auth = get(authStore);
 	return auth.user?.id ?? null;
 }
 
 export const savedWordsService = {
-	/**
-	 * Get all saved words for the current user
-	 */
 	async getAll(): Promise<SavedWord[]> {
 		const userId = getCurrentUserId();
 		if (!userId) return [];
@@ -40,9 +34,6 @@ export const savedWordsService = {
 		return (data || []).map((row) => ({ word: row.word }));
 	},
 
-	/**
-	 * Check if a word is saved for the current user
-	 */
 	async isSaved(word: string): Promise<boolean> {
 		const userId = getCurrentUserId();
 		if (!userId) return false;
@@ -55,7 +46,6 @@ export const savedWordsService = {
 			.single();
 
 		if (error && error.code !== 'PGRST116') {
-			// PGRST116 is "not found" which is fine
 			console.error('Error checking saved word:', error);
 			return false;
 		}
@@ -63,9 +53,6 @@ export const savedWordsService = {
 		return !!data;
 	},
 
-	/**
-	 * Save a word for the current user
-	 */
 	async save(word: string): Promise<void> {
 		const userId = getCurrentUserId();
 		if (!userId) {
@@ -77,10 +64,9 @@ export const savedWordsService = {
 			throw new Error('Word cannot be empty');
 		}
 
-		// Check if already saved
 		const isAlreadySaved = await this.isSaved(normalizedWord);
 		if (isAlreadySaved) {
-			return; // Already saved, no-op
+			return;
 		}
 
 		const { error } = await supabase.from('saved_words').insert({
@@ -94,9 +80,6 @@ export const savedWordsService = {
 		}
 	},
 
-	/**
-	 * Remove a saved word for the current user
-	 */
 	async remove(word: string): Promise<void> {
 		const userId = getCurrentUserId();
 		if (!userId) {
@@ -116,9 +99,6 @@ export const savedWordsService = {
 		}
 	},
 
-	/**
-	 * Clear all saved words for the current user
-	 */
 	async clear(): Promise<void> {
 		const userId = getCurrentUserId();
 		if (!userId) {

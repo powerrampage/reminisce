@@ -8,7 +8,7 @@ export interface SavedWord {
 }
 
 function createWordsStore() {
-	const { subscribe, set, update } = writable<SavedWord[]>([]);
+	const { subscribe, set } = writable<SavedWord[]>([]);
 	let isLoading = false;
 	let currentUserId: string | null = null;
 
